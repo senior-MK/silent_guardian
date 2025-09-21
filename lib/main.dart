@@ -15,7 +15,7 @@ class SilentGuardianApp extends StatelessWidget {
     return MaterialApp(
       title: 'Silent Guardian',
       theme: ThemeData(primarySwatch: Colors.deepPurple),
-      initialRoute: '/login',
+      initialRoute: '/dashboard', // Changed initial route to DashboardScreen
       routes: {
         '/login': (context) => const LoginScreen(),
         '/signup': (context) => const SignupScreen(),
