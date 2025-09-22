@@ -1,37 +1,173 @@
+// lib/services/alert_service.dart
+import 'dart:convert';
 import 'dart:developer' as developer;
 import '../models/alert.dart';
 import 'db_helper.dart';
-import 'location_service.dart'; // 👈 add this import
+import 'location_service.dart';
+
+/// Enum to represent all supported alert types
+enum AlertType { guardianLock, panic, escalation, redAlert, lowBattery }
 
 class AlertService {
-  // Panic/test alert that now tries to include location
-  static Future<int> createTestAlert({String meta = 'test'}) async {
+  // Helper - fetch best available location (current -> last known)
+  static Future<Map<String, double?>> _fetchLocation() async {
+    double? lat;
+    double? lon;
+    try {
+      final pos = await LocationService.getCurrentLocation();
+      lat = pos.latitude;
+      lon = pos.longitude;
+    } catch (e) {
+      developer.log('getCurrentLocation failed: $e', name: 'alert_service');
+      try {
+        final last = await LocationService.getLastKnownPosition();
+        if (last != null) {
+          lat = last.latitude;
+          lon = last.longitude;
+        }
+      } catch (e2) {
+        developer.log(
+          'getLastKnownPosition failed: $e2',
+          name: 'alert_service',
+        );
+      }
+    }
+    return {'lat': lat, 'lon': lon};
+  }
+
+  // Create Guardian Lock (start of countdown). Returns the inserted alert id.
+  static Future<int> createGuardianLock({
+    required int durationSeconds,
+    String? extraMeta,
+  }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
-
-    // 1. Try to get last known position
-    final position = await LocationService.getLastKnownPosition();
-
-    // 2. Build alert model
+    final loc = await _fetchLocation();
+    final metaMap = {
+      'duration': durationSeconds,
+      'status': 'armed',
+      if (extraMeta != null) 'note': extraMeta,
+    };
     final alert = AlertModel(
-      type: 'panic',
+      type: AlertType.guardianLock.name,
       timestamp: now,
+      latitude: loc['lat'],
+      longitude: loc['lon'],
       synced: false,
-      meta: meta,
-      latitude: position?.latitude, // 👈 added
-      longitude: position?.longitude, // 👈 added
+      meta: jsonEncode(metaMap),
     );
-
-    // 3. Insert into DB
     final id = await DBHelper().insertAlert(alert);
-
-    // 4. Debug log
     developer.log(
-      'Alert: inserted id=$id meta=$meta lat=${alert.latitude}, lon=${alert.longitude}',
+      'GuardianLock inserted id=$id meta=${alert.meta}',
       name: 'alert_service',
     );
     return id;
   }
 
+  // Create Escalation alert (triggered when guardian countdown expires)
+  static Future<int> createEscalationAlert({
+    int? guardianId,
+    String? extraMeta,
+  }) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final loc = await _fetchLocation();
+    final metaMap = {
+      if (guardianId != null) 'guardian_id': guardianId,
+      if (extraMeta != null) 'note': extraMeta,
+      'reason': 'countdown_expired',
+    };
+    final alert = AlertModel(
+      type: AlertType.escalation.name,
+      timestamp: now,
+      latitude: loc['lat'],
+      longitude: loc['lon'],
+      synced: false,
+      meta: jsonEncode(metaMap),
+    );
+    final id = await DBHelper().insertAlert(alert);
+    developer.log(
+      'Escalation inserted id=$id meta=${alert.meta}',
+      name: 'alert_service',
+    );
+    return id;
+  }
+
+  // Immediate Panic alert
+  static Future<int> createPanicAlert({String? extraMeta}) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final loc = await _fetchLocation();
+    final metaMap = {
+      if (extraMeta != null) 'note': extraMeta,
+      'reason': 'panic_button',
+    };
+    final alert = AlertModel(
+      type: AlertType.panic.name,
+      timestamp: now,
+      latitude: loc['lat'],
+      longitude: loc['lon'],
+      synced: false,
+      meta: jsonEncode(metaMap),
+    );
+    final id = await DBHelper().insertAlert(alert);
+    developer.log(
+      'Panic inserted id=$id meta=${alert.meta}',
+      name: 'alert_service',
+    );
+    return id;
+  }
+
+  // Red Alert (decoy PIN triggered)
+  static Future<int> createRedAlert({String? extraMeta}) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final loc = await _fetchLocation();
+    final metaMap = {
+      if (extraMeta != null) 'note': extraMeta,
+      'reason': 'red_alert_decoy_pin',
+    };
+    final alert = AlertModel(
+      type: AlertType.redAlert.name,
+      timestamp: now,
+      latitude: loc['lat'],
+      longitude: loc['lon'],
+      synced: false,
+      meta: jsonEncode(metaMap),
+    );
+    final id = await DBHelper().insertAlert(alert);
+    developer.log(
+      'RedAlert inserted id=$id meta=${alert.meta}',
+      name: 'alert_service',
+    );
+    return id;
+  }
+
+  // Low battery alert
+  static Future<int> createLowBatteryAlert({
+    int? batteryLevel,
+    String? extraMeta,
+  }) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final loc = await _fetchLocation();
+    final metaMap = {
+      if (batteryLevel != null) 'battery': batteryLevel,
+      if (extraMeta != null) 'note': extraMeta,
+      'reason': 'low_battery',
+    };
+    final alert = AlertModel(
+      type: AlertType.lowBattery.name,
+      timestamp: now,
+      latitude: loc['lat'],
+      longitude: loc['lon'],
+      synced: false,
+      meta: jsonEncode(metaMap),
+    );
+    final id = await DBHelper().insertAlert(alert);
+    developer.log(
+      'LowBattery inserted id=$id meta=${alert.meta}',
+      name: 'alert_service',
+    );
+    return id;
+  }
+
+  // Fetch all alerts
   static Future<List<AlertModel>> getAllAlerts() async {
     return DBHelper().getAllAlerts();
   }

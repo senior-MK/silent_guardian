@@ -3,6 +3,7 @@ import 'screens/login_screen.dart';
 import 'screens/signup_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'services/location_service.dart'; // ✅ added for permissions
+import 'services/battery_service.dart'; // ✅ added for battery monitoring
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -12,6 +13,13 @@ void main() async {
     await LocationService.getCurrentLocation();
   } catch (e) {
     debugPrint("⚠️ Location not available at startup: $e");
+  }
+
+  // ✅ Start BatteryService monitoring at a 15% threshold
+  try {
+    BatteryService.startMonitoring(threshold: 15);
+  } catch (e) {
+    debugPrint("⚠️ Battery monitoring failed to start: $e");
   }
 
   runApp(const SilentGuardianApp());

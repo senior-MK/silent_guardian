@@ -1,3 +1,12 @@
+// in lib/models/alert.dart (add inside class or as top-level)
+class AlertTypes {
+  static const guardianLock = 'guardian_lock';
+  static const escalation = 'escalation';
+  static const panic = 'panic';
+  static const redAlert = 'red_alert';
+  static const lowBattery = 'low_battery';
+}
+
 class AlertModel {
   final int? id;
   final String type; // 'panic','countdown','decoy','battery'
