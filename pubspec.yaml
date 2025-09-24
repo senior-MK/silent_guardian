@@ -33,15 +33,25 @@ dependencies:
   cupertino_icons: ^1.0.8
 
   # Local DB
-  sqflite: ^2.2.8+4
-  path_provider: ^2.0.15
-  path: ^1.8.3
+  sqflite: ^2.4.2
+  path_provider: ^2.1.5
+  path: ^1.9.1
 
   # Location (GPS)
-  geolocator: ^12.0.0
+  geolocator: ^14.0.2
 
     # 🔋 Battery monitoring
   battery_plus: ^6.0.0
+  permission_handler: ^12.0.1
+  flutter_sound: ^9.28.0
+  image_picker: ^1.2.0
+  workmanager: ^0.9.0+3
+  firebase_messaging: ^16.0.2
+  flutter_local_notifications: ^19.4.2
+  connectivity_plus: ^7.0.0
+  http: ^1.5.0
+  flutter_secure_storage: ^9.2.4
+  sqflite_sqlcipher: ^3.4.0
   
 dev_dependencies:
   flutter_test:
