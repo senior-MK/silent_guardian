@@ -1,9 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:workmanager/workmanager.dart';
+
 import 'screens/login_screen.dart';
 import 'screens/signup_screen.dart';
 import 'screens/dashboard_screen.dart';
-import 'services/location_service.dart'; // ✅ added for permissions
-import 'services/battery_service.dart'; // ✅ added for battery monitoring
+import 'services/location_service.dart';
+import 'services/battery_service.dart';
+import 'services/sync_service.dart'; // ✅ added for background sync
+
+const String syncTaskKey = "sync_alerts_task";
+
+@pragma('vm:entry-point')
+void callbackDispatcher() {
+  Workmanager().executeTask((task, inputData) async {
+    try {
+      if (task == syncTaskKey) {
+        final syncService = SyncService();
+        await syncService.syncAlerts();
+      }
+    } catch (e) {
+      debugPrint("⚠️ Background task error: $e");
+    }
+    return Future.value(true);
+  });
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,6 +42,16 @@ void main() async {
     debugPrint("⚠️ Battery monitoring failed to start: $e");
   }
 
+  // ✅ Initialize background sync worker
+  await Workmanager().initialize(callbackDispatcher);
+  await Workmanager().registerPeriodicTask(
+    "silent_guardian_sync",
+    syncTaskKey,
+    frequency: const Duration(minutes: 15),
+    initialDelay: const Duration(minutes: 1),
+    backoffPolicy: BackoffPolicy.linear,
+  );
+
   runApp(const SilentGuardianApp());
 }
 
@@ -31,7 +61,7 @@ class SilentGuardianApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false, // ✅ cleaner UI
+      debugShowCheckedModeBanner: false,
       title: 'Silent Guardian',
       theme: ThemeData(primarySwatch: Colors.deepPurple),
 

@@ -1,4 +1,5 @@
-// in lib/models/alert.dart (add inside class or as top-level)
+// lib/models/alert.dart
+
 class AlertTypes {
   static const guardianLock = 'guardian_lock';
   static const escalation = 'escalation';
@@ -46,6 +47,31 @@ class AlertModel {
         : (m['longitude'] as num).toDouble(),
     synced: (m['synced'] as int) == 1,
     meta: m['meta'] as String?,
+  );
+
+  // --- NEW: JSON helpers (for syncing/export) ---
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'type': type,
+    'timestamp': timestamp,
+    'latitude': latitude,
+    'longitude': longitude,
+    'synced': synced,
+    'meta': meta,
+  };
+
+  factory AlertModel.fromJson(Map<String, dynamic> json) => AlertModel(
+    id: json['id'] as int?,
+    type: json['type'] as String,
+    timestamp: json['timestamp'] as int,
+    latitude: json['latitude'] == null
+        ? null
+        : (json['latitude'] as num).toDouble(),
+    longitude: json['longitude'] == null
+        ? null
+        : (json['longitude'] as num).toDouble(),
+    synced: json['synced'] as bool? ?? false,
+    meta: json['meta'] as String?,
   );
 
   @override

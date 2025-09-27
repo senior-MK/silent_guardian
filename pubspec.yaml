@@ -41,7 +41,7 @@ dependencies:
   geolocator: ^14.0.2
 
     # 🔋 Battery monitoring
-  battery_plus: ^6.0.0
+  battery_plus: ^7.0.0
   permission_handler: ^12.0.1
   flutter_sound: ^9.28.0
   image_picker: ^1.2.0
@@ -52,7 +52,9 @@ dependencies:
   http: ^1.5.0
   flutter_secure_storage: ^9.2.4
   sqflite_sqlcipher: ^3.4.0
-  
+  app_settings: ^6.1.1
+
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -62,7 +64,7 @@ dev_dependencies:
   # activated in the `analysis_options.yaml` file located at the root of your
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
-  flutter_lints: ^5.0.0
+  flutter_lints: ^6.0.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

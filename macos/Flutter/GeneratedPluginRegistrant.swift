@@ -5,6 +5,7 @@
 import FlutterMacOS
 import Foundation
 
+import app_settings
 import battery_plus
 import connectivity_plus
 import file_selector_macos
@@ -19,6 +20,7 @@ import sqflite_darwin
 import sqflite_sqlcipher
 
 func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
+  AppSettingsPlugin.register(with: registry.registrar(forPlugin: "AppSettingsPlugin"))
   BatteryPlusMacosPlugin.register(with: registry.registrar(forPlugin: "BatteryPlusMacosPlugin"))
   ConnectivityPlusPlugin.register(with: registry.registrar(forPlugin: "ConnectivityPlusPlugin"))
   FileSelectorPlugin.register(with: registry.registrar(forPlugin: "FileSelectorPlugin"))

@@ -1,11 +1,12 @@
 // lib/screens/dashboard_screen.dart
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart'; // <-- added for kDebugMode
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../services/alert_service.dart';
-import '../models/alert.dart';
 import '../services/location_service.dart';
+import '../services/battery_service.dart';
+import '../models/alert.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -26,6 +27,13 @@ class DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     _tryLoadLastKnown();
+    BatteryService.startMonitoring(); // start real low battery monitoring
+  }
+
+  @override
+  void dispose() {
+    BatteryService.stopMonitoring(); // cleanup timer
+    super.dispose();
   }
 
   Future<void> _tryLoadLastKnown() async {
@@ -56,8 +64,7 @@ class DashboardScreenState extends State<DashboardScreen> {
     } catch (e, st) {
       debugPrint('createTestAlert error: $e\n$st');
     } finally {
-      if (!mounted) return;
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -70,12 +77,10 @@ class DashboardScreenState extends State<DashboardScreen> {
     } catch (e, st) {
       debugPrint('showAlerts error: $e\n$st');
     } finally {
-      if (!mounted) return;
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 
-  // Panic button (immediate)
   Future<void> _onPanicPressed() async {
     setState(() => _loading = true);
     try {
@@ -90,12 +95,10 @@ class DashboardScreenState extends State<DashboardScreen> {
     } catch (e) {
       debugPrint('panic create error: $e');
     } finally {
-      if (!mounted) return;
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 
-  // Simulate Red Alert (or trigger when decoy PIN entered)
   Future<void> _onRedAlertPressed() async {
     setState(() => _loading = true);
     try {
@@ -103,42 +106,16 @@ class DashboardScreenState extends State<DashboardScreen> {
       final alerts = await AlertService.getAllAlerts();
       if (!mounted) return;
       setState(() => _alerts = alerts);
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Red alert (decoy) created')),
       );
     } catch (e) {
       debugPrint('red alert error: $e');
     } finally {
-      if (!mounted) return;
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 
-  // Simulate Low Battery (for testing). In prod use BatteryService or battery_plus
-  Future<void> _simulateLowBattery(int level) async {
-    setState(() => _loading = true);
-    try {
-      await AlertService.createLowBatteryAlert(
-        batteryLevel: level,
-        extraMeta: 'simulated_low_battery',
-      );
-      final alerts = await AlertService.getAllAlerts();
-      if (!mounted) return;
-      setState(() => _alerts = alerts);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Low battery alert (level $level) created')),
-      );
-    } catch (e) {
-      debugPrint('low battery error: $e');
-    } finally {
-      if (!mounted) return;
-      setState(() => _loading = false);
-    }
-  }
-
-  // GUARDIAN LOCK: show countdown dialog; returns true if decoyPin triggered (= red alert)
   Future<void> _startGuardianLockCountdown(int seconds) async {
     final guardianId = await AlertService.createGuardianLock(
       durationSeconds: seconds,
@@ -232,7 +209,6 @@ class DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
-  // Show My Location
   Future<void> _loadLocation() async {
     setState(() => _loading = true);
     try {
@@ -301,11 +277,6 @@ class DashboardScreenState extends State<DashboardScreen> {
             ElevatedButton(
               onPressed: _onRedAlertPressed,
               child: const Text('Trigger Red Alert (decoy)'),
-            ),
-            const SizedBox(height: 10),
-            ElevatedButton(
-              onPressed: () => _simulateLowBattery(10),
-              child: const Text('Simulate Low Battery'),
             ),
             const SizedBox(height: 10),
             ElevatedButton(

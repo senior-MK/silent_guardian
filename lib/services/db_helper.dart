@@ -1,3 +1,5 @@
+// lib/services/db_helper.dart
+
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/alert.dart';
@@ -15,7 +17,7 @@ class DBHelper {
     final path = join(databasesPath, 'silent_guardian.db');
     _db = await openDatabase(
       path,
-      version: 1,
+      version: 2, // bumped version to handle migrations
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE alerts(
@@ -28,6 +30,7 @@ class DBHelper {
             meta TEXT
           );
         ''');
+
         await db.execute('''
           CREATE TABLE logs(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -36,6 +39,17 @@ class DBHelper {
             message TEXT
           );
         ''');
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          // Safe adds — will only run once if upgrading from v1 → v2
+          await db.execute("ALTER TABLE alerts ADD COLUMN latitude REAL;");
+          await db.execute("ALTER TABLE alerts ADD COLUMN longitude REAL;");
+          await db.execute(
+            "ALTER TABLE alerts ADD COLUMN synced INTEGER DEFAULT 0;",
+          );
+          await db.execute("ALTER TABLE alerts ADD COLUMN meta TEXT;");
+        }
       },
     );
     return _db!;
