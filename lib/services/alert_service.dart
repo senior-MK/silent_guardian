@@ -12,7 +12,7 @@ import 'location_service.dart';
 enum AlertType { guardianLock, panic, escalation, redAlert, lowBattery, decoy }
 
 class AlertService {
-  // Helper to fetch best available location (current -> last known)
+  // Helper: fetch best available location (current -> last known)
   static Future<Map<String, double?>> _fetchLocation() async {
     double? lat;
     double? lon;
@@ -42,6 +42,10 @@ class AlertService {
   static Future<int> triggerAlert({
     required AlertType type,
     String? extraMeta,
+    String? escalationPolicy,
+    String? targetContacts,
+    bool isDecoy = false,
+    String? escalationState,
   }) async {
     // Placeholder file for evidence
     final dir = await getApplicationDocumentsDirectory();
@@ -53,6 +57,10 @@ class AlertService {
     final id = await createAlertWithEvidence(
       type: type,
       extraMeta: extraMeta,
+      escalationPolicy: escalationPolicy,
+      targetContacts: targetContacts,
+      isDecoy: isDecoy,
+      escalationState: escalationState,
       evidencePaths: [dummyFile.path],
     );
 
@@ -64,6 +72,8 @@ class AlertService {
   static Future<int> createGuardianLock({
     required int durationSeconds,
     String? extraMeta,
+    String? escalationPolicy,
+    String? targetContacts,
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final loc = await _fetchLocation();
@@ -80,6 +90,8 @@ class AlertService {
         longitude: loc['lon'],
         synced: false,
         meta: jsonEncode(metaMap),
+        escalationPolicy: escalationPolicy,
+        targetContacts: targetContacts,
       ),
     );
   }
@@ -87,6 +99,9 @@ class AlertService {
   static Future<int> createEscalationAlert({
     int? guardianId,
     String? extraMeta,
+    String? escalationPolicy,
+    String? targetContacts,
+    String escalationState = "pending",
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final loc = await _fetchLocation();
@@ -103,11 +118,18 @@ class AlertService {
         longitude: loc['lon'],
         synced: false,
         meta: jsonEncode(metaMap),
+        escalationPolicy: escalationPolicy,
+        targetContacts: targetContacts,
+        escalationState: escalationState,
       ),
     );
   }
 
-  static Future<int> createPanicAlert({String? extraMeta}) async {
+  static Future<int> createPanicAlert({
+    String? extraMeta,
+    String? escalationPolicy,
+    String? targetContacts,
+  }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final loc = await _fetchLocation();
     final metaMap = {
@@ -122,11 +144,17 @@ class AlertService {
         longitude: loc['lon'],
         synced: false,
         meta: jsonEncode(metaMap),
+        escalationPolicy: escalationPolicy,
+        targetContacts: targetContacts,
       ),
     );
   }
 
-  static Future<int> createRedAlert({String? extraMeta}) async {
+  static Future<int> createRedAlert({
+    String? extraMeta,
+    String? escalationPolicy,
+    String? targetContacts,
+  }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final loc = await _fetchLocation();
     final metaMap = {
@@ -141,12 +169,17 @@ class AlertService {
         longitude: loc['lon'],
         synced: false,
         meta: jsonEncode(metaMap),
+        escalationPolicy: escalationPolicy,
+        targetContacts: targetContacts,
       ),
     );
   }
 
-  // --- New Decoy Alert ---
-  static Future<int> createDecoyAlert({String? extraMeta}) async {
+  static Future<int> createDecoyAlert({
+    String? extraMeta,
+    String? escalationPolicy,
+    String? targetContacts,
+  }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final loc = await _fetchLocation();
     final metaMap = {
@@ -161,6 +194,9 @@ class AlertService {
         longitude: loc['lon'],
         synced: false,
         meta: jsonEncode(metaMap),
+        escalationPolicy: escalationPolicy,
+        targetContacts: targetContacts,
+        isDecoy: true,
       ),
     );
   }
@@ -168,6 +204,8 @@ class AlertService {
   static Future<int> createLowBatteryAlert({
     int? batteryLevel,
     String? extraMeta,
+    String? escalationPolicy,
+    String? targetContacts,
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final loc = await _fetchLocation();
@@ -184,6 +222,8 @@ class AlertService {
         longitude: loc['lon'],
         synced: false,
         meta: jsonEncode(metaMap),
+        escalationPolicy: escalationPolicy,
+        targetContacts: targetContacts,
       ),
     );
   }
@@ -192,6 +232,10 @@ class AlertService {
   static Future<int> createAlertWithEvidence({
     required AlertType type,
     String? extraMeta,
+    String? escalationPolicy,
+    String? targetContacts,
+    bool isDecoy = false,
+    String? escalationState,
     List<String>? evidencePaths,
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -209,6 +253,10 @@ class AlertService {
         longitude: loc['lon'],
         synced: false,
         meta: jsonEncode(metaMap),
+        escalationPolicy: escalationPolicy,
+        targetContacts: targetContacts,
+        isDecoy: isDecoy,
+        escalationState: escalationState,
       ),
     );
   }
