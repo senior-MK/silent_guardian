@@ -48,9 +48,11 @@ dependencies:
   # Settings & device access
   app_settings: ^6.1.1
 
-  # 📱 Telephony (SIM-based SMS/calls)
-  telephony: ^0.2.0
+  # 📱 Telephony (SIM-based SMS/calls) - vendored locally
+  telephony:
+    path: plugins/telephony
   flutter_phone_direct_caller: ^2.2.1
+
 
   # 🌍 Fallback: share & launcher
   share_plus: ^12.0.0
@@ -60,6 +62,8 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  mockito: ^5.4.4
+  build_runner: ^2.4.7
 
 flutter:
   uses-material-design: true
