@@ -4,6 +4,8 @@ import 'package:workmanager/workmanager.dart';
 import 'screens/login_screen.dart';
 import 'screens/signup_screen.dart';
 import 'screens/dashboard_screen.dart';
+import 'package:silent_guardian/ui/outbox/outbox_screen.dart';
+// Removed duplicate or incorrect import
 import 'services/location_service.dart';
 import 'services/battery_service.dart';
 import 'services/sync_service.dart'; // ✅ added for background sync
@@ -72,6 +74,8 @@ class SilentGuardianApp extends StatelessWidget {
         '/login': (context) => const LoginScreen(),
         '/signup': (context) => const SignupScreen(),
         '/dashboard': (context) => const DashboardScreen(),
+        '/outbox': (context) => const OutboxScreen(),
+        // Make sure OutboxScreen is defined in outbox_screen.dart and is exported as 'OutboxScreen'
       },
 
       builder: (context, child) {

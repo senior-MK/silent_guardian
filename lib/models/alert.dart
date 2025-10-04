@@ -10,11 +10,12 @@ class AlertTypes {
 
 class AlertModel {
   final int? id;
-  final String type; // 'panic','countdown','decoy','battery'
+  final String type; // Must be one of AlertTypes.*
   final int timestamp; // epoch ms
   final double? latitude;
   final double? longitude;
-  final bool synced; // for offline-first sync
+  final bool
+  synced; // for offline-first sync (stored as int in DB, bool in JSON)
   final String? meta; // optional extra JSON/text
 
   // --- NEW fields aligned with DB ---
@@ -60,11 +61,11 @@ class AlertModel {
     longitude: m['longitude'] == null
         ? null
         : (m['longitude'] as num).toDouble(),
-    synced: (m['synced'] as int) == 1,
+    synced: (m['synced'] as int? ?? 0) == 1,
     meta: m['meta'] as String?,
     escalationPolicy: m['escalation_policy'] as String?,
     targetContacts: m['target_contacts'] as String?,
-    isDecoy: (m['is_decoy'] as int?) == 1,
+    isDecoy: (m['is_decoy'] as int? ?? 0) == 1,
     escalationState: m['escalation_state'] as String?,
   );
 
@@ -93,11 +94,15 @@ class AlertModel {
     longitude: json['longitude'] == null
         ? null
         : (json['longitude'] as num).toDouble(),
-    synced: json['synced'] as bool? ?? false,
+    synced: (json['synced'] is bool)
+        ? (json['synced'] as bool)
+        : (json['synced'] == 1),
     meta: json['meta'] as String?,
     escalationPolicy: json['escalation_policy'] as String?,
     targetContacts: json['target_contacts'] as String?,
-    isDecoy: json['is_decoy'] as bool? ?? false,
+    isDecoy: (json['is_decoy'] is bool)
+        ? (json['is_decoy'] as bool)
+        : (json['is_decoy'] == 1),
     escalationState: json['escalation_state'] as String?,
   );
 

@@ -3,42 +3,58 @@ import 'package:telephony/telephony.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class SmsService {
-  final Telephony telephony = Telephony.instance;
+  final Telephony _telephony = Telephony.instance;
 
-  /// Ask for SMS permission (Android only)
-  Future<bool> requestPermissions() async {
-    try {
-      final granted = await telephony.requestSmsPermissions;
-      return granted ?? false;
-    } catch (e) {
-      return false;
-    }
-  }
+  /// Send an alert SMS. Uses silent send on Android when permission is granted,
+  /// otherwise falls back to opening the native Messages composer.
+  /// Returns true when the action to send/open succeeded, false on error.
+  Future<bool> sendAlertSms(String phone, Map<String, dynamic> alert) async {
+    final String msg = _buildAlertMessage(alert);
 
-  /// Send SMS silently (Android only)
-  Future<bool> sendPlainSmsAndroid(String to, String message) async {
     try {
-      await telephony.sendSms(to: to, message: message);
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  /// Cross-platform wrapper
-  Future<bool> sendSmsPlatformAware(String to, String message) async {
-    try {
-      final perms = await telephony.requestSmsPermissions;
-      if (perms == true) {
-        await telephony.sendSms(to: to, message: message);
-        return true;
+      // Request SMS permission if required
+      bool? perms;
+      try {
+        perms = await _telephony.requestSmsPermissions;
+      } catch (_) {
+        perms = false;
       }
-    } catch (e) {
-      // fallback below
-    }
 
-    // iOS (and Android fallback): open Messages app
-    final uri = Uri.parse('sms:$to?body=${Uri.encodeComponent(message)}');
-    return await launchUrl(uri);
+      if (perms == true) {
+        // Attempt silent send on Android
+        try {
+          await _telephony.sendSms(to: phone, message: msg);
+          return true;
+        } catch (e) {
+          // Fall through to composer fallback
+        }
+      }
+
+      // Fallback (iOS / permission denied / send failed): open SMS composer
+      final uri = Uri.parse('sms:$phone?body=${Uri.encodeComponent(msg)}');
+      return await canLaunchUrl(uri) ? await launchUrl(uri) : false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  String _buildAlertMessage(Map<String, dynamic> alert) {
+    final type = alert['type'] ?? 'alert';
+    final tsVal = alert['timestamp'];
+    String timeString = '';
+    if (tsVal is int) {
+      final dt = DateTime.fromMillisecondsSinceEpoch(tsVal).toLocal();
+      timeString = dt.toIso8601String();
+    }
+    final lat = alert['latitude']?.toString() ?? 'N/A';
+    final lon = alert['longitude']?.toString() ?? 'N/A';
+    final meta = alert['meta'] ?? '';
+
+    return 'SilentGuardian ALERT\n'
+        'Type: $type\n'
+        'Time: $timeString\n'
+        'Location: $lat, $lon\n'
+        '${meta.isNotEmpty ? 'Info: $meta\n' : ''}'
+        '—';
   }
 }
