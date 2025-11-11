@@ -1,31 +1,24 @@
-// lib/services/db_helper.dart
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/alert.dart';
 
 class DBHelper {
-  // Singleton pattern
   static final DBHelper instance = DBHelper._internal();
   factory DBHelper() => instance;
   DBHelper._internal();
 
   static Database? _db;
-
-  // DB version bumped to 8 to include is_decoy & escalation_state
   static const int _dbVersion = 8;
   static const String _dbName = 'silent_guardian.db';
 
   Future<Database> get database async {
     if (_db != null) return _db!;
-
-    final databasesPath = await getDatabasesPath();
-    final path = join(databasesPath, _dbName);
+    final path = join(await getDatabasesPath(), _dbName);
 
     _db = await openDatabase(
       path,
       version: _dbVersion,
       onCreate: (db, version) async {
-        // Alerts table (full schema for fresh installs)
         await db.execute('''
           CREATE TABLE alerts(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -42,7 +35,6 @@ class DBHelper {
           );
         ''');
 
-        // Logs table
         await db.execute('''
           CREATE TABLE logs(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -52,7 +44,6 @@ class DBHelper {
           );
         ''');
 
-        // Emergency contacts
         await db.execute('''
           CREATE TABLE emergency_contacts(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -68,7 +59,6 @@ class DBHelper {
           );
         ''');
 
-        // Alert tasks table
         await db.execute('''
           CREATE TABLE alert_tasks(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -85,74 +75,7 @@ class DBHelper {
         ''');
       },
       onUpgrade: (db, oldVersion, newVersion) async {
-        // Safe incremental migrations (only try each when needed).
-        // Migration history:
-        //  - <5: added escalation & contacts fields
-        //  - <7: recreated alert_tasks (new schema)
-        //  - <8: add is_decoy and escalation_state
-
-        if (oldVersion < 5) {
-          // Add columns and contact fields introduced in earlier versions
-          try {
-            await db.execute(
-              "ALTER TABLE alerts ADD COLUMN escalation_policy TEXT;",
-            );
-          } catch (_) {}
-          try {
-            await db.execute(
-              "ALTER TABLE alerts ADD COLUMN target_contacts TEXT;",
-            );
-          } catch (_) {}
-          try {
-            await db.execute(
-              "ALTER TABLE emergency_contacts ADD COLUMN channels TEXT;",
-            );
-          } catch (_) {}
-          try {
-            await db.execute(
-              "ALTER TABLE emergency_contacts ADD COLUMN notify_all_on_red INTEGER DEFAULT 0;",
-            );
-          } catch (_) {}
-          try {
-            await db.execute(
-              "ALTER TABLE emergency_contacts ADD COLUMN notes TEXT;",
-            );
-          } catch (_) {}
-          try {
-            await db.execute(
-              "ALTER TABLE emergency_contacts ADD COLUMN created_at INTEGER;",
-            );
-          } catch (_) {}
-          try {
-            await db.execute(
-              "ALTER TABLE emergency_contacts ADD COLUMN updated_at INTEGER;",
-            );
-          } catch (_) {}
-        }
-
-        if (oldVersion < 7) {
-          // Recreate alert_tasks to ensure new schema (safe drop if present)
-          try {
-            await db.execute("DROP TABLE IF EXISTS alert_tasks;");
-          } catch (_) {}
-          await db.execute('''
-            CREATE TABLE IF NOT EXISTS alert_tasks(
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              alert_id INTEGER NOT NULL,
-              contact_uuid TEXT,
-              channel TEXT,
-              status TEXT DEFAULT 'pending',
-              retries INTEGER DEFAULT 0,
-              last_error TEXT,
-              created_at INTEGER,
-              updated_at INTEGER,
-              FOREIGN KEY (alert_id) REFERENCES alerts(id) ON DELETE CASCADE
-            );
-          ''');
-        }
-
         if (oldVersion < 8) {
-          // Add missing columns is_decoy and escalation_state safely
           try {
             await db.execute(
               "ALTER TABLE alerts ADD COLUMN is_decoy INTEGER DEFAULT 0;",
@@ -191,6 +114,17 @@ class DBHelper {
   Future<int> markAlertSynced(int id) async {
     final db = await database;
     return db.update('alerts', {'synced': 1}, where: 'id = ?', whereArgs: [id]);
+  }
+
+  /// ✅ Updates meta field for an existing alert.
+  Future<void> updateAlertMeta(int id, String newMeta) async {
+    final db = await database;
+    await db.update(
+      'alerts',
+      {'meta': newMeta},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   // ---------------- LOGS ----------------

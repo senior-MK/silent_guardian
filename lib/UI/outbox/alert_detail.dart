@@ -1,7 +1,7 @@
-// lib/ui/outbox/alert_detail.dart
 import 'package:flutter/material.dart';
 import '../../services/db_helper.dart';
 import '../../models/alert.dart';
+import '../../widgets/simple_audio_player.dart'; // ✅ Added
 
 class AlertDetailScreen extends StatefulWidget {
   final AlertModel alert;
@@ -45,22 +45,9 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
               subtitle: Text(
                 "Status: ${t['status']} (retries: ${t['retries']})",
               ),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.refresh),
-                    onPressed: () {
-                      // later: re-enqueue retry
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.cancel),
-                    onPressed: () {
-                      // later: cancel task
-                    },
-                  ),
-                ],
+              trailing: SimpleAudioPlayer(
+                filePath:
+                    '/storage/emulated/0/SilentGuardian/Evidence/${widget.alert.id}/audio.m4a',
               ),
             ),
           );

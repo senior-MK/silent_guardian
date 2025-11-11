@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../services/alert_service.dart';
 import '../services/location_service.dart';
 import '../services/battery_service.dart';
+import '../services/audio_service.dart';
 import '../models/alert.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -20,19 +21,25 @@ class DashboardScreenState extends State<DashboardScreen> {
   bool _loading = false;
   String _locationText = "Location not loaded";
 
-  // Decoy PIN for testing. Later connect to secure storage/user settings
+  // --- Guardian Lock variables ---
   final String _decoyPin = '1234';
+
+  // --- Developer test audio state ---
+  bool _isRecording = false;
+  bool _isPlaying = false;
+  String? _audioPath;
 
   @override
   void initState() {
     super.initState();
     _tryLoadLastKnown();
-    BatteryService.startMonitoring(); // start real low battery monitoring
+    BatteryService.startMonitoring();
   }
 
   @override
   void dispose() {
-    BatteryService.stopMonitoring(); // cleanup timer
+    BatteryService.stopMonitoring();
+    AudioService.dispose();
     super.dispose();
   }
 
@@ -48,26 +55,51 @@ class DashboardScreenState extends State<DashboardScreen> {
     } catch (_) {}
   }
 
-  // Dev-only test alert
-  Future<void> _createTestAlert([String label = 'dev_test']) async {
-    setState(() => _loading = true);
+  // ------------------------------------------------------------
+  // 🔹 AUDIO TEST (Developer)
+  // ------------------------------------------------------------
+  Future<void> _startRecording() async {
     try {
-      final id = await AlertService.createPanicAlert(extraMeta: 'test:$label');
-      debugPrint('Panic created id=$id');
-      final alerts = await AlertService.getAllAlerts();
-      if (!mounted) return;
-      setState(() => _alerts = alerts);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✅ Dev Test Alert inserted')),
-      );
-    } catch (e, st) {
-      debugPrint('createTestAlert error: $e\n$st');
-    } finally {
-      if (mounted) setState(() => _loading = false);
+      _audioPath = await AudioService.startRecording();
+      setState(() => _isRecording = true);
+    } catch (e) {
+      debugPrint('Recording failed: $e');
     }
   }
 
+  Future<void> _stopRecording() async {
+    try {
+      await AudioService.stopRecording();
+      setState(() => _isRecording = false);
+    } catch (e) {
+      debugPrint('Stop recording failed: $e');
+    }
+  }
+
+  Future<void> _playAudio() async {
+    if (_audioPath == null) return;
+    try {
+      await AudioService.playFile(_audioPath!);
+      setState(() => _isPlaying = true);
+      AudioService.positionStream?.listen((event) {
+        if (event.position >= event.duration) {
+          setState(() => _isPlaying = false);
+        }
+      });
+    } catch (e) {
+      debugPrint('Playback failed: $e');
+      setState(() => _isPlaying = false);
+    }
+  }
+
+  Future<void> _stopAudio() async {
+    await AudioService.stopPlayback();
+    setState(() => _isPlaying = false);
+  }
+
+  // ------------------------------------------------------------
+  // 🔹 ALERT CREATION
+  // ------------------------------------------------------------
   Future<void> _showAlerts() async {
     setState(() => _loading = true);
     try {
@@ -85,13 +117,10 @@ class DashboardScreenState extends State<DashboardScreen> {
     setState(() => _loading = true);
     try {
       await AlertService.createPanicAlert(extraMeta: 'user_triggered_panic');
-      final alerts = await AlertService.getAllAlerts();
-      if (!mounted) return;
-      setState(() => _alerts = alerts);
-      if (!mounted) return;
+      await _showAlerts();
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Panic alert created')));
+      ).showSnackBar(const SnackBar(content: Text('🚨 Panic alert created')));
     } catch (e) {
       debugPrint('panic create error: $e');
     } finally {
@@ -103,11 +132,9 @@ class DashboardScreenState extends State<DashboardScreen> {
     setState(() => _loading = true);
     try {
       await AlertService.createRedAlert(extraMeta: 'manual_test_red_alert');
-      final alerts = await AlertService.getAllAlerts();
-      if (!mounted) return;
-      setState(() => _alerts = alerts);
+      await _showAlerts();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Red alert (decoy) created')),
+        const SnackBar(content: Text('🟥 Red alert (decoy) created')),
       );
     } catch (e) {
       debugPrint('red alert error: $e');
@@ -116,13 +143,16 @@ class DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  // ------------------------------------------------------------
+  // 🔹 GUARDIAN LOCK
+  // ------------------------------------------------------------
   Future<void> _startGuardianLockCountdown(int seconds) async {
     final guardianId = await AlertService.createGuardianLock(
       durationSeconds: seconds,
       extraMeta: 'started_by_user',
     );
-    debugPrint('guardian lock id=$guardianId started for $seconds sec');
 
+    debugPrint('Guardian lock id=$guardianId started for $seconds sec');
     int remaining = seconds;
     Timer? timer;
 
@@ -186,6 +216,7 @@ class DashboardScreenState extends State<DashboardScreen> {
       },
     ).then((result) async {
       timer?.cancel();
+
       if (result == 'decoy') {
         await AlertService.createRedAlert(
           extraMeta: jsonEncode({'from_guardian_id': guardianId}),
@@ -194,13 +225,20 @@ class DashboardScreenState extends State<DashboardScreen> {
           const SnackBar(content: Text('Red alert triggered (decoy PIN)')),
         );
       } else if (result == 'expired') {
-        await AlertService.createEscalationAlert(
+        final escalationId = await AlertService.createEscalationAlert(
           guardianId: guardianId,
           extraMeta: 'auto_escalation',
         );
+
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Escalation alert created')),
+          const SnackBar(content: Text('⚠️ Escalation alert created')),
         );
+
+        // 🎬 Automatically stop recordings after 30 seconds
+        Future.delayed(const Duration(seconds: 30), () async {
+          await AlertService.stopAllRecordings(escalationId.toString());
+          debugPrint('🎥 Recordings stopped for escalation $escalationId');
+        });
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Guardian Lock cancelled')),
@@ -209,6 +247,9 @@ class DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
+  // ------------------------------------------------------------
+  // 🔹 LOCATION
+  // ------------------------------------------------------------
   Future<void> _loadLocation() async {
     setState(() => _loading = true);
     try {
@@ -256,55 +297,80 @@ class DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  // ------------------------------------------------------------
+  // 🔹 BUILD UI
+  // ------------------------------------------------------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Dashboard')),
+      appBar: AppBar(title: const Text('Silent Guardian Dashboard')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
+            // --- Guardian & Panic controls ---
             ElevatedButton(
               onPressed: () => _startGuardianLockCountdown(30),
-              child: const Text('Guardian Lock (30s)'),
+              child: const Text('🕒 Guardian Lock (30s)'),
             ),
             const SizedBox(height: 10),
             ElevatedButton(
               onPressed: _onPanicPressed,
-              child: const Text('Panic Alert'),
+              child: const Text('🚨 Panic Alert'),
             ),
             const SizedBox(height: 10),
             ElevatedButton(
               onPressed: _onRedAlertPressed,
-              child: const Text('Trigger Red Alert (decoy)'),
+              child: const Text('🟥 Trigger Red Alert (Decoy)'),
             ),
             const SizedBox(height: 10),
             ElevatedButton(
               onPressed: _showAlerts,
-              child: const Text('Show Alerts'),
+              child: const Text('📜 Show Alerts'),
             ),
             const SizedBox(height: 10),
             ElevatedButton(
               onPressed: _loadLocation,
-              child: const Text('Show My Location'),
+              child: const Text('📍 Show My Location'),
             ),
-            // Dev-only button
+            const SizedBox(height: 20),
+
+            // --- Audio Test (developer only) ---
             if (kDebugMode) ...[
-              const SizedBox(height: 10),
-              ElevatedButton(
-                onPressed: () => _createTestAlert("Dev"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueGrey,
-                ),
-                child: const Text('⚡ Insert Test Alert (Dev Only)'),
+              const Divider(),
+              const Text(
+                '🎧 Audio Test (Dev Only)',
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ElevatedButton(
+                    onPressed: _isRecording ? _stopRecording : _startRecording,
+                    child: Text(
+                      _isRecording ? '⏹ Stop Recording' : '🎙 Start Recording',
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  ElevatedButton(
+                    onPressed: _isPlaying ? _stopAudio : _playAudio,
+                    child: Text(
+                      _isPlaying ? '⏹ Stop Playback' : '▶️ Play Audio',
+                    ),
+                  ),
+                ],
+              ),
+              const Divider(),
             ],
+
             const SizedBox(height: 12),
             Text(
               _locationText,
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
+
+            // --- Alerts list ---
             Expanded(
               child: _loading
                   ? const Center(child: CircularProgressIndicator())

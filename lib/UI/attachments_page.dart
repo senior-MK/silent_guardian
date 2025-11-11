@@ -6,7 +6,7 @@ import '../services/audio_service.dart';
 import '../services/alert_service.dart';
 
 class AttachmentsPage extends StatefulWidget {
-  const AttachmentsPage({super.key}); // super parameter
+  const AttachmentsPage({super.key});
 
   @override
   AttachmentsPageState createState() => AttachmentsPageState();
@@ -14,9 +14,16 @@ class AttachmentsPage extends StatefulWidget {
 
 class AttachmentsPageState extends State<AttachmentsPage> {
   final ImagePicker _picker = ImagePicker();
-  final List<String> _photos = []; // make final
+  final List<String> _photos = [];
   String? _audioPath;
   bool _recording = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // prepare recorder using the static AudioService API
+    AudioService.initRecorder();
+  }
 
   Future<void> _takePhoto() async {
     final x = await _picker.pickImage(
@@ -31,6 +38,7 @@ class AttachmentsPageState extends State<AttachmentsPage> {
   Future<void> _toggleRecord() async {
     if (!_recording) {
       try {
+        // start recording via static API
         _audioPath = await AudioService.startRecording();
         if (mounted) setState(() => _recording = true);
       } catch (e) {
@@ -41,6 +49,7 @@ class AttachmentsPageState extends State<AttachmentsPage> {
         }
       }
     } else {
+      // stop recording via static API
       await AudioService.stopRecording();
       if (mounted) setState(() => _recording = false);
     }
@@ -66,6 +75,7 @@ class AttachmentsPageState extends State<AttachmentsPage> {
 
   @override
   void dispose() {
+    // dispose audio service resources
     AudioService.dispose();
     super.dispose();
   }
